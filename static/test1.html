@@ -4,168 +4,460 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MediGrid AI</title>
-    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Source+Sans+Pro:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    
+
     <style>
-        /* --- VARIABLES & RESET --- */
+        /* ============================================================
+           TOKENS
+           A clinical chart aesthetic: warm paper, deep ink, one teal
+           for trust/action, mono type standing in for the "grid" of
+           extracted data. Amber/red are reserved for medical severity,
+           never decoration.
+        ============================================================ */
         :root {
-            --bg-color: #ffffff;
-            --sidebar-bg: #f8f9fb;
-            --primary-color: #2db5b0; /*#ff4b4b*/
-            --teal-color: #00838f; 
-            --blue-btn: #2196f3; 
-            --cyan-btn: #00acc1;
-            --text-color: #262730;
-            --border-color: #e0e0e0;
+            --paper: #f7f5ee;
+            --panel: #fffdf8;
+            --ink: #1c2430;
+            --ink-soft: #5a6270;
+            --line: #ddd6c4;
+            --line-strong: #c9c0a8;
+            --teal: #1c6e67;
+            --teal-deep: #113f3c;
+            --teal-tint: #e7f1ef;
+            --amber: #a9660f;
+            --amber-tint: #fbf1e2;
+            --red: #a13636;
+            --red-tint: #f8ecec;
+            --green: #2f6b46;
+            --green-tint: #eaf3ec;
+            --radius-s: 3px;
+            --radius-m: 6px;
+            --ease: cubic-bezier(.4,0,.2,1);
         }
         * { box-sizing: border-box; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+        }
+
         body {
             font-family: 'Source Sans Pro', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
+            background-color: var(--paper);
+            color: var(--ink);
             margin: 0;
             display: flex;
             height: 100vh;
             overflow: hidden;
         }
 
+        /* faint literal "grid" watermark behind the whole app, on-theme with the product name */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background-image:
+                linear-gradient(to right, rgba(28,110,103,0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(28,110,103,0.05) 1px, transparent 1px);
+            background-size: 42px 42px;
+        }
+
         /* --- SIDEBAR --- */
         .sidebar {
-            width: 300px;
-            background-color: var(--sidebar-bg);
-            padding: 3rem 1.5rem;
+            width: 290px;
+            background-color: var(--panel);
+            padding: 2.75rem 1.6rem;
             height: 100%;
-            border-right: 1px solid #eee;
+            border-right: 1px solid var(--line);
             display: flex;
             flex-direction: column;
-            gap: 2rem;
+            gap: 2.1rem;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 1;
+        }
+        .sidebar-title {
+            font-family: 'Source Serif 4', serif;
+            font-size: 1.45rem;
+            font-weight: 600;
+            color: var(--ink);
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            letter-spacing: -0.01em;
+        }
+        .sidebar-title .mark {
+            width: 30px; height: 30px;
+            background: var(--teal);
+            color: var(--panel);
+            border-radius: var(--radius-s);
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Source Sans Pro', sans-serif;
+            font-weight: 700; font-size: 1rem;
             flex-shrink: 0;
         }
-        .sidebar-title { font-size: 1.5rem; font-weight: 700; color: #262730; display: flex; align-items: center; gap: 0.5rem; }
-        .sidebar h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem; color: #444; }
-        .info-box { background: #e3f2fd; color: #0d47a1; padding: 1rem; border-radius: 6px; font-size: 0.9rem; margin-bottom: 1rem; }
-        .location-btn { 
-            background: var(--blue-btn); color: white; border: none; width: 100%; padding: 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s;
+        .sidebar h3 {
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin: 0 0 0.6rem 0;
+            color: var(--ink-soft);
         }
-        .location-btn:hover { opacity: 0.9; }
-        .location-btn.active { background-color: #2e7d32; } 
+        .info-box {
+            background: var(--teal-tint);
+            color: var(--teal-deep);
+            padding: 0.85rem 1rem;
+            border-radius: var(--radius-m);
+            font-size: 0.85rem;
+            margin-bottom: 0.9rem;
+            border: 1px solid transparent;
+            line-height: 1.5;
+        }
+        .guide-box {
+            background: none;
+            border: 1px solid var(--line);
+            color: var(--ink-soft);
+            font-size: 0.83rem;
+            line-height: 1.7;
+        }
+        .disclaimer-box {
+            background: none;
+            border: 1px dashed var(--line-strong);
+            color: var(--ink-soft);
+            font-size: 0.78rem;
+            font-style: italic;
+            line-height: 1.5;
+        }
+        .location-btn {
+            background: var(--ink);
+            color: var(--panel);
+            border: none;
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: var(--radius-m);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background-color 0.2s var(--ease), transform 0.15s var(--ease);
+        }
+        .location-btn:hover { background: var(--teal-deep); }
+        .location-btn:active { transform: scale(0.98); }
+        .location-btn.active { background-color: var(--green); }
+        .location-btn .material-icons.spin { animation: spin 1s linear infinite; }
+
+        /* --- ONE ORCHESTRATED LOAD SEQUENCE --- */
+        .reveal { opacity: 0; transform: translateY(10px); animation: revealIn 0.6s var(--ease) forwards; }
+        @keyframes revealIn { to { opacity: 1; transform: translateY(0); } }
 
         /* --- MAIN CONTENT CONTAINER --- */
         .main-content {
             flex: 1;
-            padding: 1rem 4rem;
+            padding: 1rem 4rem 0;
             overflow-y: auto;
             position: relative;
-            background: white;
+            background: transparent;
             display: flex;
             flex-direction: column;
+            z-index: 1;
         }
 
         /* --- TOP SECTION --- */
-        .top-section { margin-bottom: 2rem; text-align: center; }
-        .hero-title { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; color: #262730; }
-        .sub-header { color: #666; margin-bottom: 1.5rem; }
+        .top-section { margin-bottom: 1.75rem; text-align: center; padding-top: 1.25rem; }
+        .hero-title {
+            font-family: 'Source Serif 4', serif;
+            font-size: 2.65rem;
+            font-weight: 600;
+            margin-bottom: 0.6rem;
+            color: var(--ink);
+            letter-spacing: -0.015em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+        }
+        .hero-title .mark {
+            width: 40px; height: 40px;
+            background: var(--teal);
+            color: var(--panel);
+            border-radius: var(--radius-s);
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Source Sans Pro', sans-serif;
+            font-weight: 700; font-size: 1.3rem;
+        }
+        .sub-header { color: var(--ink-soft); margin-bottom: 1.6rem; font-size: 1.02rem; max-width: 480px; margin-left: auto; margin-right: auto; }
 
         .upload-zone {
-            border: 2px dashed #00acc1;
-            background: #f0f8ff;
-            border-radius: 12px;
-            padding: 2rem;
+            border: 1.5px dashed var(--line-strong);
+            background: var(--panel);
+            border-radius: var(--radius-m);
+            padding: 1.85rem;
             text-align: center;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: border-color 0.2s var(--ease), background-color 0.2s var(--ease);
             margin-bottom: 1rem;
-            max-width: 800px;
+            max-width: 760px;
             margin-left: auto;
             margin-right: auto;
         }
-        .upload-zone:hover { background: #e0f7fa; border-color: #00838f; }
-        .upload-content { display: flex; align-items: center; justify-content: center; gap: 1rem; color: #555; }
-        .browse-btn { background: white; border: 1px solid #ccc; padding: 8px 16px; border-radius: 4px; font-weight: 600; cursor: pointer; }
+        .upload-zone:hover { background: var(--teal-tint); border-color: var(--teal); }
+        .upload-content { display: flex; align-items: center; justify-content: center; gap: 1rem; color: var(--ink-soft); }
+        .browse-btn {
+            background: var(--panel);
+            border: 1px solid var(--line-strong);
+            color: var(--ink);
+            padding: 8px 16px;
+            border-radius: var(--radius-s);
+            font-weight: 600;
+            font-size: 0.88rem;
+            cursor: pointer;
+            transition: border-color 0.2s var(--ease);
+        }
+        .browse-btn:hover { border-color: var(--teal); color: var(--teal-deep); }
 
         .full-width-btn {
-            background: var(--cyan-btn); color: white; border: none; padding: 12px; width: 100%; max-width: 800px; border-radius: 6px; font-weight: 600; cursor: pointer; margin: 0 auto; display: block;
+            background: none;
+            color: var(--teal-deep);
+            border: none;
+            padding: 10px;
+            width: 100%;
+            max-width: 760px;
+            border-radius: var(--radius-m);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            text-decoration: underline;
+            text-decoration-color: var(--line-strong);
+            text-underline-offset: 4px;
+            transition: text-decoration-color 0.2s var(--ease);
         }
+        .full-width-btn:hover { text-decoration-color: var(--teal); }
 
         /* --- WAITING STATE --- */
-        .waiting-state { text-align: center; color: #999; margin-top: 3rem; transition: opacity 0.3s; }
-        .waiting-state h3 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #bbb; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .waiting-state { text-align: center; color: var(--ink-soft); margin-top: 2.5rem; }
+        .waiting-state h3 {
+            font-family: 'Source Serif 4', serif;
+            font-weight: 500;
+            font-size: 1.3rem;
+            margin-bottom: 0.4rem;
+            color: var(--ink-soft);
+        }
 
         /* --- RESULTS --- */
         .results-container {
-            display: none; 
-            border-top: 1px solid #eee;
-            padding-top: 2rem;
+            display: none;
+            border-top: 1px solid var(--line);
+            padding-top: 1.75rem;
             height: 100%;
-            animation: slideUp 0.4s ease;
-            padding-bottom: 80px; 
+            animation: slideUp 0.5s var(--ease);
+            padding-bottom: 80px;
         }
 
-        .split-layout { display: flex; gap: 2rem; height: 500px; }
-        .col-header { font-size: 1.2rem; font-weight: 700; margin-bottom: 1rem; color: #333; display: flex; align-items: center; gap: 8px; }
+        .split-layout { display: flex; gap: 1.75rem; height: 520px; }
+        .col-header {
+            font-family: 'Source Serif 4', serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.9rem;
+            color: var(--ink);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .col-header .material-icons { font-size: 1.1rem; color: var(--teal); }
 
         /* Left: Source Image */
-        .left-col { flex: 1; display: flex; flex-direction: column; min-width: 350px; }
-        .img-viewer { 
-            flex: 1; background: #222; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            position: relative; cursor: zoom-in;
+        .left-col { flex: 1; display: flex; flex-direction: column; min-width: 340px; }
+        .img-viewer {
+            flex: 1;
+            background: var(--ink);
+            border-radius: var(--radius-m);
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+            position: relative;
+            cursor: zoom-in;
+            border: 1px solid var(--line-strong);
         }
-        .img-viewer img { max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.3s; }
-        .img-viewer:hover img { transform: scale(1.02); }
-        .zoom-hint { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; pointer-events: none; }
+        .img-viewer img { max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.3s var(--ease); }
+        .img-viewer:hover img { transform: scale(1.015); }
+        .zoom-hint {
+            position: absolute; bottom: 10px; right: 10px;
+            background: rgba(28,36,48,0.72); color: #fff;
+            padding: 4px 10px; border-radius: var(--radius-s);
+            font-size: 0.75rem; pointer-events: none;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+        /* scanning-line sweep while the model reads the prescription — echoes the physical act of scanning a document */
+        .scan-line {
+            position: absolute; left: 0; right: 0; height: 2px;
+            background: linear-gradient(to right, transparent, var(--teal) 20%, var(--teal) 80%, transparent);
+            box-shadow: 0 0 10px 1px rgba(28,110,103,0.7);
+            animation: scanSweep 1.8s ease-in-out infinite;
+            display: none;
+        }
+        .img-viewer.scanning .scan-line { display: block; }
+        @keyframes scanSweep { 0% { top: 4%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 94%; opacity: 0; } }
 
         /* Right: Analysis Tab */
-        .right-col { 
-            flex: 1.2; background: white; border: 1px solid #eee; border-radius: 8px; display: flex; flex-direction: column; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+        .right-col {
+            flex: 1.2;
+            background: var(--panel);
+            border: 1px solid var(--line-strong);
+            border-radius: var(--radius-m);
+            display: flex;
+            flex-direction: column;
+            position: relative;
         }
 
-        .panel-nav { display: flex; border-bottom: 1px solid #eee; padding: 0 1rem; background: #fafafa; border-radius: 8px 8px 0 0; }
-        .nav-btn { background: none; border: none; padding: 1rem; font-weight: 600; color: #666; cursor: pointer; border-bottom: 3px solid transparent; }
-        .nav-btn.active { color: var(--primary-color); border-bottom-color: var(--primary-color); background: white; }
-        
-        .panel-content { flex: 1; padding: 1.5rem; overflow-y: auto; }
-        
-        .loader-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; border-radius: 8px; }
-        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
+        .panel-nav { display: flex; border-bottom: 1px solid var(--line); padding: 0 1.1rem; }
+        .nav-btn {
+            background: none; border: none; padding: 0.95rem 0.2rem; margin-right: 1.6rem;
+            font-weight: 600; font-size: 0.9rem; color: var(--ink-soft);
+            cursor: pointer; border-bottom: 2px solid transparent;
+            transition: color 0.15s var(--ease), border-color 0.15s var(--ease);
+        }
+        .nav-btn.active { color: var(--teal-deep); border-bottom-color: var(--teal); }
+        .nav-btn:hover:not(.active) { color: var(--ink); }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.9rem; }
-        th { text-align: left; padding: 10px; background: #f9f9f9; color: #555; }
-        td { padding: 10px; border-bottom: 1px solid #eee; }
-        .patient-card { background: #f5f5f5; padding: 1rem; border-radius: 6px; display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 1rem; font-size: 0.9rem; }
+        .panel-content { flex: 1; padding: 1.4rem 1.5rem; overflow-y: auto; }
+
+        .loader-overlay {
+            position: absolute; inset: 0;
+            background: rgba(255,253,248,0.97);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 10; border-radius: var(--radius-m);
+        }
+        .loader-overlay p {
+            margin-top: 12px; font-weight: 600; color: var(--ink-soft);
+            font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem;
+        }
+        .spinner { width: 34px; height: 34px; border: 3px solid var(--line); border-top: 3px solid var(--teal); border-radius: 50%; animation: spin 0.9s linear infinite; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 0.9rem; font-size: 0.88rem; }
+        th {
+            text-align: left; padding: 9px 10px; color: var(--ink-soft);
+            font-weight: 600; font-size: 0.72rem; letter-spacing: 0.02em;
+            border-bottom: 1px solid var(--line-strong);
+        }
+        td { padding: 10px; border-bottom: 1px solid var(--line); font-family: 'IBM Plex Mono', monospace; font-size: 0.83rem; }
+        td.med-name { font-family: 'Source Sans Pro', sans-serif; font-weight: 600; color: var(--teal-deep); }
+        tbody tr { opacity: 0; animation: rowIn 0.4s var(--ease) forwards; }
+        @keyframes rowIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+        .patient-card {
+            background: var(--teal-tint);
+            padding: 0.9rem 1.1rem;
+            border-radius: var(--radius-m);
+            display: flex; justify-content: space-between;
+            font-weight: 600; margin-bottom: 1rem; font-size: 0.87rem;
+            color: var(--teal-deep);
+        }
+
+        .warning-item {
+            padding: 11px 14px; background: var(--amber-tint);
+            border-left: 3px solid var(--amber); margin-bottom: 8px;
+            border-radius: var(--radius-s); font-size: 0.88rem; line-height: 1.5;
+            opacity: 0; animation: rowIn 0.4s var(--ease) forwards;
+        }
+        .warning-ok { color: var(--green); padding: 11px 14px; background: var(--green-tint); border-radius: var(--radius-s); }
+        .warning-error { color: var(--red); background: var(--red-tint); padding: 11px 14px; border-radius: var(--radius-s); }
+
+        .panel-footer {
+            padding: 0.95rem 1.1rem; border-top: 1px solid var(--line);
+            display: flex; gap: 10px; justify-content: flex-end;
+        }
+        .save-btn {
+            background: var(--teal); color: #fff; border: none;
+            padding: 0.68rem 1.1rem; border-radius: var(--radius-s);
+            font-weight: 600; font-size: 0.85rem; cursor: pointer;
+            display: flex; align-items: center; gap: 6px;
+            transition: background-color 0.15s var(--ease), transform 0.15s var(--ease);
+        }
+        .save-btn:hover { background: var(--teal-deep); }
+        .save-btn:active { transform: scale(0.97); }
 
         /* --- FULLSCREEN --- */
         .fullscreen-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); z-index: 5000; display: none;
+            background: rgba(20,25,32,0.94); z-index: 5000; display: none;
             align-items: center; justify-content: center; cursor: zoom-out;
         }
         .fullscreen-overlay img { max-width: 90%; max-height: 90%; object-fit: contain; }
-        .fullscreen-close { position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer; }
+        .fullscreen-close { position: absolute; top: 20px; right: 30px; color: #fff; font-size: 36px; cursor: pointer; font-family: 'Source Sans Pro', sans-serif; }
 
         /* --- MODAL --- */
-        .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-        .modal-content { background: white; margin: 5% auto; padding: 2rem; width: 80%; max-height: 80vh; overflow-y: auto; border-radius: 8px; position: relative; }
-        .close-modal { position: absolute; top: 15px; right: 20px; font-size: 2rem; cursor: pointer; color: #666; }
+        .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(28,36,48,0.45); }
+        .modal-content {
+            background: var(--panel); margin: 5% auto; padding: 2rem; width: 80%; max-height: 80vh;
+            overflow-y: auto; border-radius: var(--radius-m); position: relative;
+            border: 1px solid var(--line-strong);
+            animation: modalIn 0.25s var(--ease);
+        }
+        @keyframes modalIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-content h2 { font-family: 'Source Serif 4', serif; font-weight: 600; }
+        .close-modal { position: absolute; top: 15px; right: 20px; font-size: 1.8rem; cursor: pointer; color: var(--ink-soft); }
 
         /* --- CHAT --- */
-        .chat-widget-btn { position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; background-color: var(--primary-color); color: white; border-radius: 50%; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 2000; transition: transform 0.2s; }
-        .chat-widget-btn:hover { transform: scale(1.1); }
-        .chat-popup { position: fixed; bottom: 100px; right: 25px; width: 350px; height: 500px; background-color: white; border-radius: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.2); display: flex; flex-direction: column; z-index: 1999; overflow: hidden; border: 1px solid #eee; opacity: 0; pointer-events: none; transform: translateY(20px); transition: all 0.3s ease; }
-        .chat-popup.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
-        .chat-header { background: var(--primary-color); color: white; padding: 1rem; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
-        .chat-body { flex: 1; padding: 1rem; overflow-y: auto; background-color: #f9f9f9; display: flex; flex-direction: column; gap: 10px; }
-        .chat-footer { padding: 0.8rem; border-top: 1px solid #eee; background-color: white; display: flex; gap: 0.5rem; }
-        .chat-input { flex: 1; border: 1px solid #ddd; border-radius: 20px; padding: 8px 15px; outline: none; }
-        .msg { padding: 8px 12px; border-radius: 15px; max-width: 85%; font-size: 0.9rem; line-height: 1.4; }
-        .msg.bot { background: #e8f0fe; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }
-        .msg.user { background: var(--primary-color); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .chat-widget-btn {
+            position: fixed; bottom: 25px; right: 25px; width: 56px; height: 56px;
+            background-color: var(--ink); color: var(--panel); border-radius: 50%;
+            border: none; box-shadow: 0 6px 18px rgba(28,36,48,0.3); cursor: pointer;
+            display: flex; align-items: center; justify-content: center; z-index: 2000;
+            transition: transform 0.2s var(--ease), background-color 0.2s var(--ease);
+        }
+        .chat-widget-btn:hover { transform: scale(1.06); background-color: var(--teal-deep); }
+        .chat-popup {
+            position: fixed; bottom: 95px; right: 25px; width: 340px; height: 480px;
+            background-color: var(--panel); border-radius: var(--radius-m);
+            box-shadow: 0 10px 34px rgba(28,36,48,0.22); display: flex; flex-direction: column;
+            z-index: 1999; overflow: hidden; border: 1px solid var(--line-strong);
+            opacity: 0; pointer-events: none; transform: translateY(14px) scale(0.98);
+            transition: all 0.22s var(--ease);
+        }
+        .chat-popup.active { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
+        .chat-header {
+            background: var(--ink); color: var(--panel); padding: 0.95rem 1.1rem;
+            font-weight: 600; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center;
+        }
+        .chat-body { flex: 1; padding: 1rem; overflow-y: auto; background-color: var(--paper); display: flex; flex-direction: column; gap: 9px; }
+        .chat-footer { padding: 0.7rem; border-top: 1px solid var(--line); background-color: var(--panel); display: flex; gap: 0.5rem; }
+        .chat-input { flex: 1; border: 1px solid var(--line-strong); border-radius: 18px; padding: 8px 14px; outline: none; font-size: 0.88rem; }
+        .chat-input:focus { border-color: var(--teal); }
+        .msg { padding: 8px 12px; border-radius: 13px; max-width: 85%; font-size: 0.87rem; line-height: 1.45; }
+        .msg.bot { background: var(--teal-tint); color: var(--teal-deep); align-self: flex-start; border-bottom-left-radius: 2px; }
+        .msg.user { background: var(--ink); color: #fff; align-self: flex-end; border-bottom-right-radius: 2px; }
 
-        .toast { position: fixed; top: 20px; right: 20px; background: #333; color: white; padding: 12px 20px; border-radius: 4px; animation: fadeIn 0.3s; z-index: 3000; }
+        .toast {
+            position: fixed; top: 22px; right: 22px;
+            background: var(--ink); color: #fff; padding: 11px 18px 11px 14px;
+            border-radius: var(--radius-s); font-size: 0.87rem;
+            border-left: 3px solid var(--teal);
+            animation: toastIn 0.3s var(--ease);
+            z-index: 3000;
+        }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         .hidden { display: none; }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(14px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes spin { 100% { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Keyboard focus visibility */
+        button:focus-visible, .upload-zone:focus-visible, input:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .main-content { padding: 1rem 1.25rem 0; }
+            .split-layout { flex-direction: column; height: auto; }
+            .img-viewer { height: 320px; }
+        }
     </style>
 </head>
 <body>
@@ -174,29 +466,28 @@
     <input type="file" id="hiddenFileInput" accept="image/*" style="display:none;">
 
     <div class="sidebar">
-        <div class="sidebar-title">✚ MediGrid AI</div>
-        
-        <div>
-            <h3>📍 Location Service</h3>
-            <div class="info-box">Click below to enable location services</div>
+        <div class="sidebar-title reveal" style="animation-delay:0.05s"><span class="mark">M</span>MediGrid AI</div>
+
+        <div class="reveal" style="animation-delay:0.15s">
+            <h3>Location service</h3>
+            <div class="info-box">Enable location to find nearby pharmacies for each medication.</div>
             <button type="button" class="location-btn" id="locBtn" onclick="requestRealLocation()">
-                <span class="material-icons">my_location</span> Find Nearby
+                <span class="material-icons">my_location</span> Find nearby
             </button>
         </div>
 
-        <div>
-            <h3>📘 User Guide</h3>
-            <div class="info-box" style="background:none; border:1px solid #7ea2a3; color:#555;">
-                1. Enable location (must for nearby pharmacies).<br>
+        <div class="reveal" style="animation-delay:0.25s">
+            <h3>How it works</h3>
+            <div class="info-box guide-box">
+                1. Enable location — needed for nearby pharmacies.<br>
                 2. Upload a prescription image.<br>
-                3. AI extracts medicines clearly.<br>
-                4. Download report
-                5. Save to Database for chat with ai assistant.
+                3. Review the extracted medicines.<br>
+                4. Download the report.<br>
+                5. Save to the database to chat with the assistant.
             </div>
-            <h3>ℹ️ Desclimer</h3>
-            <div class="info-box" style="background:none; border:1px solid #ffffff; color:#555;">
-                This AI Application provide informational support only and do not substitute for professional medical advice, diagnosis, or treatment.”.<br>
-                
+            <h3>Disclaimer</h3>
+            <div class="info-box disclaimer-box">
+                This tool offers informational support only and does not substitute for professional medical advice, diagnosis, or treatment.
             </div>
         </div>
     </div>
@@ -204,54 +495,55 @@
     <div class="main-content">
 
         <div class="top-section">
-            <div class="hero-title">✚ MediGrid AI</div>
-            <div class="sub-header">Transform handwritten tablets prescriptions into digital medical insights.</div>
+            <div class="hero-title reveal" style="animation-delay:0.1s"><span class="mark">✚</span>MediGrid AI</div>
+            <div class="sub-header reveal" style="animation-delay:0.2s">Turn a handwritten prescription into a clear, checkable medication record.</div>
 
-            <div class="upload-zone" onclick="triggerUpload()">
+            <div class="upload-zone reveal" style="animation-delay:0.3s" onclick="triggerUpload()" tabindex="0">
                 <div class="upload-content">
-                    <span class="material-icons" style="font-size: 2rem; color: #ccc;">cloud_upload</span>
+                    <span class="material-icons" style="font-size: 1.8rem; color: var(--line-strong);">cloud_upload</span>
                     <div>
-                        <div style="font-weight:600; color:#333;">Drag and drop file here</div>
-                        <div style="font-size:0.8rem; color:#888; margin-top:5px;">Limit 200MB • PNG, JPG, JPEG</div>
+                        <div style="font-weight:600; color:var(--ink);">Drag and drop a prescription here</div>
+                        <div style="font-size:0.78rem; color:var(--ink-soft); margin-top:4px;">Limit 200MB — PNG, JPG, JPEG</div>
                     </div>
-                    <button class="browse-btn">Upload files</button>
+                    <button class="browse-btn" type="button">Upload file</button>
                 </div>
             </div>
-            
-            <button type="button" class="full-width-btn" onclick="toggleHistory()">View History</button>
+
+            <button type="button" class="full-width-btn reveal" style="animation-delay:0.38s" onclick="toggleHistory()">
+                <span class="material-icons" style="font-size:1rem;">history</span> View history
+            </button>
         </div>
 
-        <div id="waitingState" class="waiting-state">
-            <h3>👋 Waiting for upload...</h3>
-            <p>Please upload a prescription image to view the analysis dashboard.</p>
+        <div id="waitingState" class="waiting-state reveal" style="animation-delay:0.45s">
+            <h3>Waiting for a prescription</h3>
+            <p>Upload an image above to see the extracted medications here.</p>
         </div>
 
         <div id="resultsContainer" class="results-container">
             <div class="split-layout">
-                
+
                 <div class="left-col">
-                    <div class="col-header"><span class="material-icons" style="color:#00acc1">image</span> Source Images</div>
-                    <div class="img-viewer" onclick="openFullscreen()">
+                    <div class="col-header"><span class="material-icons">image</span> Source image</div>
+                    <div class="img-viewer" id="imgViewer" onclick="openFullscreen()">
                         <img id="dashboardImg" src="" alt="Source Prescription">
-                        <div class="zoom-hint"><span class="material-icons" style="font-size:0.8rem; vertical-align:middle;">zoom_in</span> Click to Zoom</div>
+                        <div class="scan-line" id="scanLine"></div>
+                        <div class="zoom-hint">click to zoom</div>
                     </div>
                 </div>
 
                 <div class="right-col">
-                    <div class="col-header" style="padding: 0 1rem; margin-top: 1rem;"><span class="material-icons" style="color:#ff4b4b">analytics</span> Analysis Tab</div>
-
                     <div class="loader-overlay" id="dashboardLoader">
                         <div class="spinner"></div>
-                        <p style="margin-top:10px; font-weight:600; color:#555;">Analyzing Prescription...</p>
+                        <p>reading prescription…</p>
                     </div>
 
                     <div class="panel-nav">
-                        <button class="nav-btn active" onclick="switchTab('tabData', this)">📄 Extracted Data</button>
-                        <button class="nav-btn" onclick="switchTab('tabWarn', this)">⚠️ Critical Warnings</button>
+                        <button class="nav-btn active" onclick="switchTab('tabData', this)">Extracted data</button>
+                        <button class="nav-btn" onclick="switchTab('tabWarn', this)">Critical warnings</button>
                     </div>
 
                     <div id="tabData" class="panel-content">
-                        <div class="patient-card" id="patientData">Loading...</div>
+                        <div class="patient-card" id="patientData">Loading…</div>
                         <table>
                             <thead>
                                 <tr>
@@ -259,7 +551,7 @@
                                     <th>Dosage</th>
                                     <th>Freq</th>
                                     <th>Duration</th>
-                                    <th>Action</th>
+                                    <th>Nearby</th>
                                 </tr>
                             </thead>
                             <tbody id="medTable"></tbody>
@@ -269,10 +561,10 @@
                     <div id="tabWarn" class="panel-content hidden">
                         <div id="warningList"></div>
                     </div>
-                    
-                    <div style="padding:1rem; border-top:1px solid #eee; display:flex; gap:10px; justify-content:flex-end;">
-                         <button type="button" class="browse-btn" onclick="downloadText()">Download Report (.txt)</button>
-                         <button type="button" class="location-btn" style="width:auto; background:#2e7d32;" onclick="saveToDb(event)">Save to DB</button>
+
+                    <div class="panel-footer">
+                         <button type="button" class="browse-btn" onclick="downloadText()">Download report (.txt)</button>
+                         <button type="button" class="save-btn" onclick="saveToDb(event)"><span class="material-icons" style="font-size:1rem;">save</span> Save to database</button>
                     </div>
                 </div>
 
@@ -281,21 +573,21 @@
 
     </div>
 
-    <button class="chat-widget-btn" onclick="toggleChat()">
-        <span class="material-icons" style="font-size: 28px;">support_agent</span>
+    <button class="chat-widget-btn" onclick="toggleChat()" aria-label="Open assistant chat">
+        <span class="material-icons" style="font-size: 26px;">support_agent</span>
     </button>
     <div class="chat-popup" id="chatPopup">
         <div class="chat-header">
-            <span>🤖 MediAI Support Assistant</span>
+            <span>MediGrid assistant</span>
             <span class="material-icons" style="cursor:pointer" onclick="toggleChat()">close</span>
         </div>
         <div class="chat-body" id="chatBox">
-            <div class="msg bot">Hello! I am your MediGrid assistant. How can I help you with this prescription?</div>
+            <div class="msg bot">Hello! I'm your MediGrid assistant. How can I help with this prescription?</div>
         </div>
         <div class="chat-footer">
-            <input type="text" id="chatInput" class="chat-input" placeholder="Ask a question...">
-            <button onclick="sendChat()" style="background:var(--primary-color); color:white; border:none; border-radius:50%; width:35px; height:35px; cursor:pointer; display:flex; align-items:center; justify-content:center;">
-                <span class="material-icons" style="font-size:16px;">send</span>
+            <input type="text" id="chatInput" class="chat-input" placeholder="Ask a question…">
+            <button onclick="sendChat()" style="background:var(--teal); color:white; border:none; border-radius:50%; width:34px; height:34px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <span class="material-icons" style="font-size:15px;">send</span>
             </button>
         </div>
     </div>
@@ -308,14 +600,14 @@
     <div id="historyModal" class="modal">
         <div class="modal-content">
             <span class="close-modal" onclick="toggleHistory()">×</span>
-            <h2>📜 Database History</h2>
+            <h2>Database history</h2>
             <div style="overflow-x:auto;">
                 <table id="historyTable" style="margin-top:20px;">
                     <thead><tr id="historyHeader"></tr></thead>
                     <tbody id="historyBody"></tbody>
                 </table>
             </div>
-            <p id="historyLoading" style="text-align:center; color:#666;">Loading data...</p>
+            <p id="historyLoading" style="text-align:center; color:var(--ink-soft);">Loading data…</p>
         </div>
     </div>
 
@@ -324,6 +616,7 @@
         const resultsContainer = document.getElementById('resultsContainer');
         const waitingState = document.getElementById('waitingState');
         const dashboardImg = document.getElementById('dashboardImg');
+        const imgViewer = document.getElementById('imgViewer');
         const loader = document.getElementById('dashboardLoader');
         const apiUrl = document.getElementById('apiUrl').value;
         let currentData = null;
@@ -336,14 +629,14 @@
             if (!navigator.geolocation) { alert("Geolocation not supported."); return; }
             const btn = document.getElementById('locBtn');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<span class="material-icons spin">refresh</span> Requesting...';
+            btn.innerHTML = '<span class="material-icons spin">refresh</span> Requesting…';
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     const { latitude: lat, longitude: lng } = pos.coords;
                     userCoordinates = { latitude: lat, longitude: lng };
-                    btn.innerHTML = '<span class="material-icons">check_circle</span> Location Saved';
+                    btn.innerHTML = '<span class="material-icons">check_circle</span> Location saved';
                     btn.classList.add('active');
-                    showToast(`📍 Location Acquired `);  //${lat.toFixed(2)}, ${lng.toFixed(2)}
+                    showToast(`Location acquired`);
                 },
                 (err) => { alert("Permission denied."); btn.innerHTML = originalText; }
             );
@@ -354,14 +647,14 @@
             const file = e.target.files[0];
             if (!file) return;
 
-            // HIDE Waiting State, SHOW Results
             waitingState.style.display = 'none';
             resultsContainer.style.display = 'block';
-            
+
             dashboardImg.src = URL.createObjectURL(file);
             loader.style.display = 'flex';
+            imgViewer.classList.add('scanning');
             switchTab('tabData', document.querySelector('.nav-btn'));
-            
+
             const formData = new FormData();
             formData.append('image', file);
             if (userCoordinates) formData.append('user_location', JSON.stringify(userCoordinates));
@@ -374,12 +667,14 @@
 
                 renderDashboard(data);
                 loader.style.display = 'none';
-                showToast("✅ Analysis Completed");
+                imgViewer.classList.remove('scanning');
+                showToast("Analysis completed");
                 fetchWarnings(data);
 
             } catch(err) {
                 alert("Analysis Failed :Give Location Permission to Analyze  " + err.message);
                 loader.style.display = 'none';
+                imgViewer.classList.remove('scanning');
             }
         });
 
@@ -391,19 +686,20 @@
             const date = p.Date || '--';
 
             document.getElementById('patientData').innerHTML = `
-                <span>👤 ${name}</span><span>📅 ${date}</span><span>🎂 ${age}</span>
+                <span>${name}</span><span>${date}</span><span>Age ${age}</span>
             `;
 
             const tbody = document.getElementById('medTable');
             tbody.innerHTML = '';
-            (data.Prescription_info || []).forEach(m => {
+            (data.Prescription_info || []).forEach((m, i) => {
                 const dur = m.Duration || m.duration || 'Not provided';
-                tbody.innerHTML += `
-                    <tr>
-                        <td style="font-weight:600; color:#0d47a1;">${m.medications}</td>
+                const row = document.createElement('tr');
+                row.style.animationDelay = (i * 0.06) + 's';
+                row.innerHTML = `
+                        <td class="med-name">${m.medications}</td>
                         <td>${m.Dosage}</td><td>${m.Frequency}</td><td>${dur}</td>
-                        <td><a href="${m.Map_link}" target="_blank" style="color:#c62828; text-decoration:none;">📍 Map</a></td>
-                    </tr>`;
+                        <td><a href="${m.Map_link}" target="_blank" style="color:var(--teal-deep); text-decoration:none; font-family:'Source Sans Pro',sans-serif; font-weight:600;">Map ↗</a></td>`;
+                tbody.appendChild(row);
             });
         }
 
@@ -427,35 +723,38 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(cleanData)
                 });
-                
+
                 const warnings = await res.json();
                 const div = document.getElementById('warningList');
                 div.innerHTML = '';
 
                 if (warnings.detail) {
-                   div.innerHTML = `<div style="color:red; padding:10px;">Backend Validation Error: ${JSON.stringify(warnings.detail)}</div>`;
+                   div.innerHTML = `<div class="warning-error">Backend validation error: ${JSON.stringify(warnings.detail)}</div>`;
                    return;
                 }
-                
+
                 if(!warnings || warnings.length === 0) {
-                    div.innerHTML = '<div style="color:green; padding:10px; background:#e8f5e9;">✅ No critical warnings.</div>';
+                    div.innerHTML = '<div class="warning-ok">No critical warnings.</div>';
                 } else {
                     let list = Array.isArray(warnings) ? warnings : [JSON.stringify(warnings)];
-                    list.forEach(w => {
+                    list.forEach((w, i) => {
                         let cleanW = w.trim();
                         if (!cleanW) return;
                         if (cleanW.startsWith('-')) cleanW = cleanW.substring(1).trim();
-                        cleanW = cleanW.replace(/\[(.*?)\]/g, '<strong style="color:#d32f2f;">[$1]</strong>');
-                        div.innerHTML += `<div style="padding:10px; background:#fff3e0; border-left:4px solid #ff9800; margin-bottom:5px; border-radius:4px;">${cleanW}</div>`;
+                        cleanW = cleanW.replace(/\[(.*?)\]/g, '<strong style="color:var(--red);">[$1]</strong>');
+                        const item = document.createElement('div');
+                        item.className = 'warning-item';
+                        item.style.animationDelay = (i * 0.08) + 's';
+                        item.innerHTML = cleanW;
+                        div.appendChild(item);
                     });
-                    showToast("⚠️ Warnings Found");
+                    showToast("Warnings found");
                 }
             } catch(e) { console.error(e); }
         }
 
-        // --- FIXED: SAVE TO DB (Prevent Reload) ---
+        // --- SAVE TO DB (Prevent Reload) ---
         function saveToDb(event) {
-             // THIS PREVENTS THE PAGE RELOAD
              if(event) event.preventDefault();
 
              const payload = {
@@ -469,14 +768,14 @@
                  }))
              };
 
-             fetch("http://127.0.0.1:8000/post_into_db", { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify(payload) 
+             fetch("http://127.0.0.1:8000/post_into_db", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
              })
              .then(res => {
-                 if(res.ok) showToast("💾 Saved to Database");
-                 else showToast("❌ Save Failed");
+                 if(res.ok) showToast("Saved to database");
+                 else showToast("Save failed");
              });
         }
 
